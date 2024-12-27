@@ -29,12 +29,6 @@ class EditGameForm(QDialog):
         self.description_label = QLabel('Описание:')
         self.description_input = QTextEdit()
 
-        # Область для изображения
-        self.image_display = QLabel()
-        self.image_display.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-        self.image_display.setText("Область для изображений игры")
-        self.image_display.mousePressEvent = self.add_image
-
         self.key_label = QLabel('Ключ (AAAA-AAAA-AAAA-AAAA):')
         self.key_input = QLineEdit()
         self.key_input.setInputMask('AAAA-AAAA-AAAA-AAAA;_')
@@ -45,7 +39,6 @@ class EditGameForm(QDialog):
         self.cancel_button.clicked.connect(self.close)
 
         layout = QVBoxLayout()
-        layout.addWidget(self.image_display)
         layout.addWidget(self.name_label)
         layout.addWidget(self.name_input)
         layout.addWidget(self.genre_label)
@@ -64,23 +57,8 @@ class EditGameForm(QDialog):
         layout.addWidget(self.cancel_button)
         self.setLayout(layout)
 
-        self.image_path = ""
-
         if self.game_data:
             self.set_game_data(self.game_data)
-
-    def add_image(self, event):
-        file_path, _ = QFileDialog.getOpenFileName(self, 'Выберите изображение', '', 'Image Files (*.png *.jpg *.bmp)')
-        if file_path:
-            pixmap = QPixmap(file_path)
-            if not pixmap.isNull():
-                self.image_display.setPixmap(pixmap.scaledToWidth(self.width()))
-                self.image_display.setScaledContents(True)
-                self.image_display.setText("")
-                self.image_path = file_path
-            else:
-                QMessageBox.warning(self, 'Ошибка', 'Не удалось загрузить изображение.')
-                self.image_path = ""  # Обнуление пути
 
     def save_game(self):
         if not all([self.name_input.text(), self.genre_input.text(), self.developer_input.text(),
@@ -95,7 +73,6 @@ class EditGameForm(QDialog):
             'publisher': self.publisher_input.text(),
             'year': self.year_input.text(),
             'description': self.description_input.toPlainText(),
-            'image_path': self.image_path,
             'key': self.key_input.text()
         }
 
@@ -186,16 +163,3 @@ class EditGameForm(QDialog):
             self.year_input.setText(game_data['year'])
             self.key_input.setText(game_data['key'])
             self.description_input.setText(game_data['description'])
-            if game_data['image_path']:
-                pixmap = QPixmap(game_data['image_path'])
-                if not pixmap.isNull():
-                    self.image_display.setPixmap(pixmap.scaledToWidth(self.width()))
-                    self.image_display.setScaledContents(True)
-                    self.image_display.setText("")
-                    self.image_path = game_data['image_path']
-                else:
-                    self.image_display.setText("Изображение не найдено")
-                    self.image_path = ""
-            else:
-                self.image_display.setText("Область для изображений игры")
-                self.image_path = ""
