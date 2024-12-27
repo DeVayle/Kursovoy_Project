@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QWidget, QLabel, QLineEdit,
     QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout,
-    QHBoxLayout, QCheckBox, QGroupBox, QMessageBox, QDialog)
+    QHBoxLayout, QCheckBox, QGroupBox, QMessageBox, QDialog, QComboBox)
 from game_redactor import EditGameForm
 from db_manager import DatabaseManager
 
@@ -24,20 +24,21 @@ class GameCatalogForm(QWidget):
 
         # Фильтры
         self.filter_group = QGroupBox('Фильтры')
-        self.genre_checkbox = QCheckBox('Жанр')
-        self.developer_checkbox = QCheckBox('Разработчик')
-        self.publisher_checkbox = QCheckBox('Издатель')
-        self.year_checkbox = QCheckBox('Год выхода')
-        self.genre_checkbox.stateChanged.connect(self.filter_table)
-        self.developer_checkbox.stateChanged.connect(self.filter_table)
-        self.publisher_checkbox.stateChanged.connect(self.filter_table)
-        self.year_checkbox.stateChanged.connect(self.filter_table)
+        self.genre_label = QLabel('Жанр:')
+        self.genre_combo = QComboBox()
+        self.genre_combo.addItem("Не выбрано")
+        self.year_label = QLabel('Год выхода:')
+        self.year_combo = QComboBox()
+        self.year_combo.addItem("Не выбрано")
+        # коннектим сигналы комбобоксов к слоту
+        self.genre_combo.currentIndexChanged.connect(self.apply_filters)
+        self.year_combo.currentIndexChanged.connect(self.apply_filters)
 
         filter_layout = QVBoxLayout()
-        filter_layout.addWidget(self.genre_checkbox)
-        filter_layout.addWidget(self.developer_checkbox)
-        filter_layout.addWidget(self.publisher_checkbox)
-        filter_layout.addWidget(self.year_checkbox)
+        filter_layout.addWidget(self.genre_label)
+        filter_layout.addWidget(self.genre_combo)
+        filter_layout.addWidget(self.year_label)
+        filter_layout.addWidget(self.year_combo)
         self.filter_group.setLayout(filter_layout)
 
         # Кнопки навигации
@@ -65,6 +66,7 @@ class GameCatalogForm(QWidget):
         self.game_table.setColumnCount(6)
         self.game_table.setHorizontalHeaderLabels(['Название', 'Жанр', 'Разработчик', 'Издатель', 'Год выхода', ''])
         self.game_table.setRowCount(0)
+        self.game_table.setEditTriggers(QTableWidget.NoEditTriggers)
 
         # Инициализируем DatabaseManager
         self.db_manager = DatabaseManager(
@@ -76,6 +78,7 @@ class GameCatalogForm(QWidget):
 
         # Загружаем данные из БД при инициализации
         self.load_games_from_db()
+        self.populate_filter_comboboxes()
 
         main_layout = QVBoxLayout(self)
         main_layout.addLayout(search_layout)
@@ -84,6 +87,21 @@ class GameCatalogForm(QWidget):
         main_layout.addWidget(self.game_table)
         main_layout.addLayout(nav_layout)
 
+    def populate_filter_comboboxes(self):
+        # Заполняем комбобоксы уникальными значениями из БД
+        self.genre_combo.clear()
+        self.year_combo.clear()
+        self.genre_combo.addItem("Не выбрано")
+        self.year_combo.addItem("Не выбрано")
+
+        genres = self.db_manager.execute_query("SELECT DISTINCT genre FROM Games")
+        years = self.db_manager.execute_query("SELECT DISTINCT release_date FROM Games")
+
+        for genre in genres:
+            self.genre_combo.addItem(genre[0])
+        for year in years:
+            self.year_combo.addItem(str(year[0]))
+
     def add_game(self):
         # Создаем пустую форму редактирования игры и передаем ссылку на таблицу
         self.edit_game_form = EditGameForm(self, game_table=self.game_table)
@@ -91,34 +109,22 @@ class GameCatalogForm(QWidget):
             self.load_games_from_db()
 
     def search(self):
-        search_text = self.search_input.text().lower()
+        # При поиске просто вызываем apply_filters
+        self.apply_filters()
+
+    def apply_filters(self):
+        # Применяем фильтры к таблице
+        selected_genre = self.genre_combo.currentText()
+        selected_year = self.year_combo.currentText()
+
         for row in range(self.game_table.rowCount()):
-            item = self.game_table.item(row, 0)
-            if search_text in item.text().lower():
-                self.game_table.setRowHidden(row, False)
-            else:
-                self.game_table.setRowHidden(row, True)
-        self.filter_table()
+            genre_item = self.game_table.item(row, 1)
+            year_item = self.game_table.item(row, 4)
 
-    def filter_table(self):
-      for row in range(self.game_table.rowCount()):
-          self.game_table.setRowHidden(row, False)
+            genre_match = selected_genre == "Не выбрано" or (genre_item and genre_item.text() == selected_genre)
+            year_match = selected_year == "Не выбрано" or (year_item and year_item.text() == selected_year)
 
-      search_text = self.search_input.text().lower()
-      for row in range(self.game_table.rowCount()):
-          item = self.game_table.item(row, 0)
-          if search_text not in item.text().lower():
-              self.game_table.setRowHidden(row, True)
-
-      for row in range(self.game_table.rowCount()):
-          if not self.game_table.isRowHidden(row):
-              genre_match = not self.genre_checkbox.isChecked() or (self.game_table.item(row, 1) and self.genre_checkbox.text() == self.game_table.item(row, 1).text())
-              developer_match = not self.developer_checkbox.isChecked() or (self.game_table.item(row, 2) and self.developer_checkbox.text() == self.game_table.item(row, 2).text())
-              publisher_match = not self.publisher_checkbox.isChecked() or (self.game_table.item(row, 3) and self.publisher_checkbox.text() == self.game_table.item(row, 3).text())
-              year_match = not self.year_checkbox.isChecked() or (self.game_table.item(row, 4) and self.year_checkbox.text() == self.game_table.item(row, 4).text())
-
-              if not (genre_match and developer_match and publisher_match and year_match):
-                  self.game_table.setRowHidden(row, True)
+            self.game_table.setRowHidden(row, not (genre_match and year_match))
 
     def edit_game(self, row):
         game_data = {
