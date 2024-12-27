@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QWidget, QTableWidget, QTableWidgetItem, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox, \
-    QDialog, QAbstractItemView
+from PyQt5.QtWidgets import (QWidget, QTableWidget, QTableWidgetItem, QPushButton, QVBoxLayout,
+                             QHBoxLayout, QMessageBox, QDialog, QAbstractItemView)
 from db_manager import DatabaseManager
 from plan_redactor import EditSubscriptionForm
 

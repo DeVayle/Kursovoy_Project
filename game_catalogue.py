@@ -1,6 +1,5 @@
-from PyQt5.QtWidgets import (QWidget, QLabel, QLineEdit,
-    QPushButton, QTableWidget, QTableWidgetItem, QVBoxLayout,
-    QHBoxLayout, QCheckBox, QGroupBox, QMessageBox, QDialog, QComboBox)
+from PyQt5.QtWidgets import (QWidget, QLabel, QLineEdit, QPushButton, QTableWidget, QVBoxLayout,
+    QHBoxLayout, QGroupBox, QMessageBox, QDialog, QComboBox, QTableWidgetItem)
 from game_redactor import EditGameForm
 from db_manager import DatabaseManager
 
@@ -107,6 +106,7 @@ class GameCatalogForm(QWidget):
         self.edit_game_form = EditGameForm(self, game_table=self.game_table)
         if self.edit_game_form.exec_() == QDialog.Accepted:
             self.load_games_from_db()
+            self.populate_filter_comboboxes()
 
     def search(self):
         # При поиске просто вызываем apply_filters
@@ -146,8 +146,9 @@ class GameCatalogForm(QWidget):
         games = self.db_manager.execute_query(query)
 
         if games is not None:
-            self.game_table.setRowCount(len(games))
+            self.game_table.setRowCount(0)
             for row, game in enumerate(games):
+                self.game_table.insertRow(row)
                 self.game_table.setItem(row, 0, QTableWidgetItem(game[0]))
                 self.game_table.setItem(row, 1, QTableWidgetItem(game[1]))
                 self.game_table.setItem(row, 2, QTableWidgetItem(game[2]))
@@ -167,8 +168,8 @@ class GameCatalogForm(QWidget):
                 cell_widget.setLayout(button_layout)
                 self.game_table.setCellWidget(row, 5, cell_widget)
 
-                edit_button.clicked.connect(lambda _, row=row: self.edit_game(row))
-                delete_button.clicked.connect(lambda _, row=row: self.delete_game(row))
+                edit_button.clicked.connect(lambda _, r=row: self.edit_game(r))
+                delete_button.clicked.connect(lambda _, r=row: self.delete_game(r))
 
             self.game_table.resizeColumnsToContents()
         else:

@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QDialog, QLabel, QLineEdit, QTextEdit, QPushButton, QVBoxLayout, QFormLayout, QMessageBox, \
-    QHBoxLayout, QListWidget, QAbstractItemView, QListWidgetItem, QComboBox
+from PyQt5.QtWidgets import (QDialog, QLabel, QLineEdit, QTextEdit, QPushButton, QVBoxLayout,
+                             QFormLayout, QMessageBox, QHBoxLayout, QListWidget, QAbstractItemView, QListWidgetItem)
 from db_manager import DatabaseManager
 
 

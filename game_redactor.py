@@ -1,7 +1,5 @@
-import sys
-from PyQt5.QtWidgets import (QWidget, QLabel, QLineEdit,
-    QPushButton, QVBoxLayout, QTextEdit, QFileDialog,
-    QMessageBox, QDialog, QHBoxLayout, QApplication, QTableWidgetItem)
+from PyQt5.QtWidgets import (QLabel, QLineEdit, QPushButton, QVBoxLayout, QTextEdit,
+                             QFileDialog, QMessageBox, QDialog, QTableWidgetItem)
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 

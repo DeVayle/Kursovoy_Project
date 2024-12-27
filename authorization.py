@@ -1,6 +1,4 @@
-import sys
-from PyQt5.QtWidgets import (QWidget, QLabel, QLineEdit,
-    QPushButton, QVBoxLayout, QMessageBox, QFrame)
+from PyQt5.QtWidgets import (QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QMessageBox, QFrame)
 from PyQt5.QtCore import Qt
 
 class AuthForm(QWidget):

@@ -1,8 +1,7 @@
-import sys
 import csv
 from PyQt5.QtWidgets import (QWidget, QLabel, QPushButton, QVBoxLayout, QDialog, QFileDialog,
-                             QHBoxLayout, QStackedWidget, QMessageBox, QTableWidget, QApplication,
-                             QTableWidgetItem, QAbstractItemView, QDateEdit, QGroupBox, QComboBox, QLineEdit, QFormLayout)
+                             QHBoxLayout, QStackedWidget, QMessageBox, QTableWidget, QTableWidgetItem,
+                             QAbstractItemView, QDateEdit, QGroupBox, QComboBox, QLineEdit, QFormLayout)
 from PyQt5.QtCore import QDate, Qt
 from db_manager import DatabaseManager
 
