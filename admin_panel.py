@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import (QWidget, QLabel, QPushButton, QVBoxLayout, QDialog, QFormLayout,
+from PyQt5.QtWidgets import (QWidget, QLabel, QPushButton, QVBoxLayout, QDialog,
                              QHBoxLayout, QStackedWidget, QMessageBox, QTableWidget, QApplication,
                              QTableWidgetItem, QAbstractItemView, QDateEdit, QGroupBox, QComboBox, QLineEdit)
 from PyQt5.QtCore import QDate
@@ -65,25 +65,6 @@ class AdminPanelForm(QWidget):
         # Кнопка "Сформировать отчёт"
         self.generate_report_button = QPushButton('Сформировать отчёт')
         self.generate_report_button.clicked.connect(self.generate_report)
-
-        # Кнопки для добавления, изменения и удаления отчётов
-        self.add_report_button = QPushButton('Добавить отчёт')
-        self.add_report_button.clicked.connect(self.add_report)
-        self.edit_report_button = QPushButton('Изменить отчёт')
-        self.edit_report_button.clicked.connect(self.edit_report)
-        self.delete_report_button = QPushButton('Удалить отчёт')
-        self.delete_report_button.clicked.connect(self.delete_report)
-
-        reports_buttons_layout = QHBoxLayout()
-        reports_buttons_layout.addWidget(self.add_report_button)
-        reports_buttons_layout.addWidget(self.edit_report_button)
-        reports_buttons_layout.addWidget(self.delete_report_button)
-
-        reports_layout.addWidget(period_group)
-        reports_layout.addWidget(self.report_table)
-        reports_layout.addWidget(self.generate_report_button)
-        reports_layout.addLayout(reports_buttons_layout)
-        self.reports_page.setLayout(reports_layout)
 
         reports_layout.addWidget(period_group)
         reports_layout.addWidget(self.report_table)
@@ -214,9 +195,10 @@ class AdminPanelForm(QWidget):
                     report_params = (sale_data[0], plan_id, sale_data[2].split()[0], 0)
                     self.db_manager.execute_update(report_insert_query, report_params)
 
-                    # Обновляем таблицу на форме
+                    # Обновляем таблицу на форме после успешного добавления
                     self.load_sales_data()
-                    self.load_reports_data()  # Обновляем данные в отчётах
+                    self.load_reports_data()
+                    QMessageBox.information(self, "Успех", "Продажа успешно добавлена.")
                 else:
                     QMessageBox.warning(self, "Ошибка", "Не удалось добавить продажу в базу данных.")
             else:
@@ -238,6 +220,8 @@ class AdminPanelForm(QWidget):
         # Обновляем таблицу
         if sales_data:
             self.sales_table.setRowCount(len(sales_data))
+            self.sales_table.setColumnCount(5)
+            self.sales_table.setHorizontalHeaderLabels(['Дата', 'ID подписки', 'Метод оплаты', 'ID платежа', ''])
             for row, data in enumerate(sales_data):
                 self.sales_table.setItem(row, 0, QTableWidgetItem(str(data[0])))  # Дата
                 self.sales_table.setItem(row, 1, QTableWidgetItem(str(data[1])))  # ID подписки
@@ -367,53 +351,6 @@ class AdminPanelForm(QWidget):
                 QMessageBox.information(self, "Успех", f"Продажа с ID {payment_id} успешно удалена.")
             else:
                 QMessageBox.warning(self, "Ошибка", f"Не удалось удалить продажу с ID {payment_id}.")
-
-    def add_report(self):
-        add_report_form = AddEditReportForm(self)
-        if add_report_form.exec_() == QDialog.Accepted:
-            self.load_reports_data()
-
-    def edit_report(self):
-        # Получаем индекс выбранной строки
-        current_row = self.report_table.currentRow()
-        if current_row < 0:
-            QMessageBox.warning(self, "Ошибка", "Выберите отчёт для редактирования.")
-            return
-
-        # Получаем данные отчёта из таблицы
-        report_id = self.report_table.item(current_row, 0).text()
-        report_date = self.report_table.item(current_row, 1).text()
-        plan_id = self.report_table.item(current_row, 2).text()
-        total_revenue = self.report_table.item(current_row, 3).text()
-        total_expenses = self.report_table.item(current_row, 4).text()
-
-        # Создаем форму редактирования и передаем ей данные
-        edit_report_form = AddEditReportForm(self, report_id, report_date, plan_id, total_revenue, total_expenses)
-        if edit_report_form.exec_() == QDialog.Accepted:
-            self.load_reports_data()
-
-    def delete_report(self):
-        # Получаем индекс выбранной строки
-        current_row = self.report_table.currentRow()
-        if current_row < 0:
-            QMessageBox.warning(self, "Ошибка", "Выберите отчёт для удаления.")
-            return
-
-        # Получаем ID отчёта
-        report_id = self.report_table.item(current_row, 0).text()
-
-        # Запрашиваем подтверждение удаления
-        reply = QMessageBox.question(self, 'Удаление отчёта', f'Вы уверены, что хотите удалить отчёт с ID {report_id}?',
-                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if reply == QMessageBox.Yes:
-            # Удаляем запись из БД
-            query = "DELETE FROM reports WHERE report_id = %s"
-            if self.db_manager.execute_update(query, (report_id,)):
-                # Удаляем строку из таблицы
-                self.report_table.removeRow(current_row)
-                QMessageBox.information(self, "Успех", f"Отчёт с ID {report_id} успешно удален.")
-            else:
-                QMessageBox.warning(self, "Ошибка", f"Не удалось удалить отчёт с ID {report_id}.")
 
     def load_reports_data(self):
         # SQL-запрос для выборки всех данных из reports
@@ -557,95 +494,3 @@ class AddSaleForm(QDialog):
             self.price,  # Добавляем цену в возвращаемые данные
             self.buyer_input.text()
         )
-
-class AddEditReportForm(QDialog):
-    def __init__(self, parent=None, report_id=None, report_date=None, plan_id=None, total_revenue=None, total_expenses=None):
-        super().__init__(parent)
-        self.setWindowTitle('Добавить/изменить отчёт')
-        self.db_manager = parent.db_manager  # Используем db_manager из родительского окна
-        self.report_id = report_id
-
-        # Поля формы
-        self.date_label = QLabel('Дата:')
-        self.date_edit = QDateEdit(QDate.currentDate())
-        self.date_edit.setCalendarPopup(True)
-
-        self.plan_id_label = QLabel('ID плана:')
-        self.plan_id_combo = QComboBox()
-        self.load_plan_ids()
-
-        self.revenue_label = QLabel('Доход:')
-        self.revenue_edit = QLineEdit()
-
-        self.expenses_label = QLabel('Расход:')
-        self.expenses_edit = QLineEdit()
-
-        self.save_button = QPushButton('Сохранить')
-        self.save_button.clicked.connect(self.save_report)
-        self.cancel_button = QPushButton('Отмена')
-        self.cancel_button.clicked.connect(self.reject)
-
-        # Размещение элементов на форме
-        layout = QFormLayout()
-        layout.addRow(self.date_label, self.date_edit)
-        layout.addRow(self.plan_id_label, self.plan_id_combo)
-        layout.addRow(self.revenue_label, self.revenue_edit)
-        layout.addRow(self.expenses_label, self.expenses_edit)
-        layout.addRow(self.save_button, self.cancel_button)
-        self.setLayout(layout)
-
-        # Заполняем поля, если это редактирование
-        if report_id:
-            self.date_edit.setDate(QDate.fromString(report_date, "yyyy-MM-dd"))
-            index = self.plan_id_combo.findText(plan_id)
-            if index != -1:
-                self.plan_id_combo.setCurrentIndex(index)
-            self.revenue_edit.setText(total_revenue)
-            self.expenses_edit.setText(total_expenses)
-
-    def load_plan_ids(self):
-        # Загрузка ID планов в QComboBox
-        query = "SELECT plan_id, plan_name FROM plans"
-        plan_list = self.db_manager.execute_query(query)
-        for plan_id, plan_name in plan_list:
-            self.plan_id_combo.addItem(f"{plan_id} - {plan_name}", plan_id)
-
-    def save_report(self):
-        # Получаем данные из полей
-        report_date = self.date_edit.date().toString("yyyy-MM-dd")
-        plan_id = self.plan_id_combo.currentData()
-        total_revenue = self.revenue_edit.text()
-        total_expenses = self.expenses_edit.text()
-
-        # Проверяем, что поля заполнены
-        if not all([report_date, plan_id, total_revenue, total_expenses]):
-            QMessageBox.warning(self, 'Ошибка', 'Пожалуйста, заполните все поля!')
-            return
-
-        # Проверяем, что plan_id существует
-        if not self.parent().get_plan_id_by_name(plan_id):
-            QMessageBox.warning(self, "Ошибка", f"Плана с ID {plan_id} не существует.")
-            return
-
-        # Добавляем или обновляем запись в БД
-        if self.report_id:
-            # Редактирование существующего отчёта
-            query = """
-                UPDATE reports
-                SET date = %s, plan_id = %s, total_revenue = %s, total_expenses = %s
-                WHERE report_id = %s
-            """
-            params = (report_date, plan_id, total_revenue, total_expenses, self.report_id)
-        else:
-            # Добавление нового отчёта
-            query = """
-                INSERT INTO reports (date, plan_id, total_revenue, total_expenses)
-                VALUES (%s, %s, %s, %s)
-            """
-            params = (report_date, plan_id, total_revenue, total_expenses)
-
-        if self.db_manager.execute_update(query, params) >= 0:
-            QMessageBox.information(self, "Успех", "Отчёт сохранен.")
-            self.accept()
-        else:
-            QMessageBox.warning(self, "Ошибка", "Не удалось сохранить отчёт.")
