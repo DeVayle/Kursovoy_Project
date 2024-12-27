@@ -1,15 +1,9 @@
 import sys
 from PyQt5.QtWidgets import (QWidget, QLabel, QPushButton, QVBoxLayout, QDialog,
                              QHBoxLayout, QStackedWidget, QMessageBox, QTableWidget, QApplication,
-                             QTableWidgetItem, QAbstractItemView, QDateEdit, QGroupBox, QComboBox, QLineEdit)
+                             QTableWidgetItem, QAbstractItemView, QDateEdit, QGroupBox, QComboBox, QLineEdit, QFormLayout)
 from PyQt5.QtCore import QDate
 from db_manager import DatabaseManager
-
-import matplotlib
-matplotlib.use('Qt5Agg')
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
-from matplotlib.ticker import MaxNLocator
 
 class AdminPanelForm(QWidget):
     def __init__(self, main_window):
@@ -29,12 +23,10 @@ class AdminPanelForm(QWidget):
         # Кнопки-вкладки
         self.reports_button = QPushButton('Отчёты')
         self.sales_button = QPushButton('Проданные подписки')
-        self.charts_button = QPushButton('Графики')
 
         tabs_layout = QHBoxLayout()
         tabs_layout.addWidget(self.reports_button)
         tabs_layout.addWidget(self.sales_button)
-        tabs_layout.addWidget(self.charts_button)
 
         # Область содержимого
         self.stacked_widget = QStackedWidget()
@@ -66,9 +58,23 @@ class AdminPanelForm(QWidget):
         self.generate_report_button = QPushButton('Сформировать отчёт')
         self.generate_report_button.clicked.connect(self.generate_report)
 
+        # Кнопки для добавления, изменения и удаления отчётов
+        self.add_report_button = QPushButton('Добавить отчёт')
+        self.add_report_button.clicked.connect(self.add_report)
+        self.edit_report_button = QPushButton('Изменить отчёт')
+        self.edit_report_button.clicked.connect(self.edit_report)
+        self.delete_report_button = QPushButton('Удалить отчёт')
+        self.delete_report_button.clicked.connect(self.delete_report)
+
+        reports_buttons_layout = QHBoxLayout()
+        reports_buttons_layout.addWidget(self.add_report_button)
+        reports_buttons_layout.addWidget(self.edit_report_button)
+        reports_buttons_layout.addWidget(self.delete_report_button)
+
         reports_layout.addWidget(period_group)
         reports_layout.addWidget(self.report_table)
         reports_layout.addWidget(self.generate_report_button)
+        reports_layout.addLayout(reports_buttons_layout)  # Добавляем кнопки в разметку
         self.reports_page.setLayout(reports_layout)
 
         # Страница "Проданные подписки"
@@ -89,24 +95,9 @@ class AdminPanelForm(QWidget):
         sales_layout.addWidget(self.add_sale_button)
         self.sales_page.setLayout(sales_layout)
 
-        # Страница "Графики"
-        self.charts_page = QWidget()
-        charts_layout = QVBoxLayout()
-
-        # Создаем FigureCanvas
-        self.figure = Figure()
-        self.canvas = FigureCanvas(self.figure)
-        charts_layout.addWidget(self.canvas)
-
-        self.charts_page.setLayout(charts_layout)
-
-        # Создаем и настраиваем график
-        self.setup_chart()
-
         # Добавляем страницы в QStackedWidget
         self.stacked_widget.addWidget(self.reports_page)
         self.stacked_widget.addWidget(self.sales_page)
-        self.stacked_widget.addWidget(self.charts_page)
 
         # Кнопки навигации
         self.catalog_button = QPushButton('Каталог игр')
@@ -134,7 +125,6 @@ class AdminPanelForm(QWidget):
         # Логика переключения вкладок
         self.reports_button.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(0))
         self.sales_button.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(1))
-        self.charts_button.clicked.connect(lambda: self.stacked_widget.setCurrentIndex(2))
 
         # Загрузка данных в таблицы при старте
         self.load_sales_data()
@@ -168,6 +158,53 @@ class AdminPanelForm(QWidget):
         else:
             self.report_table.setRowCount(0)
             QMessageBox.information(self, "Отчет", "Нет данных для отображения.")
+
+    def add_report(self):
+        add_report_form = AddEditReportForm(self)
+        if add_report_form.exec_() == QDialog.Accepted:
+            self.load_reports_data()
+
+    def edit_report(self):
+        # Получаем индекс выбранной строки
+        current_row = self.report_table.currentRow()
+        if current_row < 0:
+            QMessageBox.warning(self, "Ошибка", "Выберите отчёт для редактирования.")
+            return
+
+        # Получаем данные отчёта из таблицы
+        report_id = self.report_table.item(current_row, 0).text()
+        report_date = self.report_table.item(current_row, 1).text()
+        plan_id = self.report_table.item(current_row, 2).text()
+        total_revenue = self.report_table.item(current_row, 3).text()
+        total_expenses = self.report_table.item(current_row, 4).text()
+
+        # Создаем форму редактирования и передаем ей данные
+        edit_report_form = AddEditReportForm(self, report_id, report_date, plan_id, total_revenue, total_expenses)
+        if edit_report_form.exec_() == QDialog.Accepted:
+            self.load_reports_data()
+
+    def delete_report(self, row):
+        # Получаем индекс выбранной строки
+        current_row = self.report_table.currentRow()
+        if current_row < 0:
+            QMessageBox.warning(self, "Ошибка", "Выберите отчёт для удаления.")
+            return
+
+        # Получаем ID отчёта
+        report_id = self.report_table.item(current_row, 0).text()
+
+        # Запрашиваем подтверждение удаления
+        reply = QMessageBox.question(self, 'Удаление отчёта', f'Вы уверены, что хотите удалить отчёт с ID {report_id}?',
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            # Удаляем запись из БД
+            query = "DELETE FROM reports WHERE report_id = %s"
+            if self.db_manager.execute_update(query, (report_id,)):
+                # Удаляем строку из таблицы
+                self.report_table.removeRow(current_row)
+                QMessageBox.information(self, "Успех", f"Отчёт с ID {report_id} успешно удален.")
+            else:
+                QMessageBox.warning(self, "Ошибка", f"Не удалось удалить отчёт с ID {report_id}.")
 
     def add_sale(self):
         add_sale_form = AddSaleForm(self)
@@ -367,47 +404,6 @@ class AdminPanelForm(QWidget):
         else:
             self.report_table.setRowCount(0)
 
-    def setup_chart(self):
-        # Получаем данные из таблицы "Проданные подписки"
-        sales_data = []
-        for row in range(self.sales_table.rowCount()):
-            subscription_id = self.sales_table.item(row, 1).text()
-            sales_data.append(subscription_id)
-
-        # Группируем данные по подпискам и считаем количество продаж
-        subscription_counts = {}
-        for subscription in sales_data:
-            if subscription in subscription_counts:
-                subscription_counts[subscription] += 1
-            else:
-                subscription_counts[subscription] = 1
-
-        # Сортируем подписки по алфавиту
-        sorted_subscriptions = sorted(subscription_counts.keys())
-        sorted_counts = [subscription_counts[subscription] for subscription in sorted_subscriptions]
-
-        # Очищаем график
-        self.figure.clear()
-
-        # Создаем subplot
-        ax = self.figure.add_subplot(111)
-
-        # Строим столбчатую диаграмму
-        bars = ax.bar(sorted_subscriptions, sorted_counts)
-
-        # Добавляем легенду
-        ax.legend(bars, sorted_subscriptions, loc='upper center', bbox_to_anchor=(0.5, -0.15), fancybox=True, shadow=True, ncol=3)
-
-        # Настраиваем внешний вид
-        ax.set_title("Продажи подписок")
-        ax.set_ylabel("Количество")
-
-        # Ограничиваем количество целочисленных меток по оси Y
-        ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-
-        # Обновляем canvas
-        self.canvas.draw()
-
     def open_catalog_form(self):
         self.main_window.show_game_catalog_form()
 
@@ -494,3 +490,95 @@ class AddSaleForm(QDialog):
             self.price,  # Добавляем цену в возвращаемые данные
             self.buyer_input.text()
         )
+
+class AddEditReportForm(QDialog):
+    def __init__(self, parent=None, report_id=None, report_date=None, plan_id=None, total_revenue=None, total_expenses=None):
+        super().__init__(parent)
+        self.setWindowTitle('Добавить/изменить отчёт')
+        self.db_manager = parent.db_manager  # Используем db_manager из родительского окна
+        self.report_id = report_id
+
+        # Поля формы
+        self.date_label = QLabel('Дата:')
+        self.date_edit = QDateEdit(QDate.currentDate())
+        self.date_edit.setCalendarPopup(True)
+
+        self.plan_id_label = QLabel('ID плана:')
+        self.plan_id_combo = QComboBox()
+        self.load_plan_ids()
+
+        self.revenue_label = QLabel('Доход:')
+        self.revenue_edit = QLineEdit()
+
+        self.expenses_label = QLabel('Расход:')
+        self.expenses_edit = QLineEdit()
+
+        self.save_button = QPushButton('Сохранить')
+        self.save_button.clicked.connect(self.save_report)
+        self.cancel_button = QPushButton('Отмена')
+        self.cancel_button.clicked.connect(self.reject)
+
+        # Размещение элементов на форме
+        layout = QFormLayout()
+        layout.addRow(self.date_label, self.date_edit)
+        layout.addRow(self.plan_id_label, self.plan_id_combo)
+        layout.addRow(self.revenue_label, self.revenue_edit)
+        layout.addRow(self.expenses_label, self.expenses_edit)
+        layout.addRow(self.save_button, self.cancel_button)
+        self.setLayout(layout)
+
+        # Заполняем поля, если это редактирование
+        if report_id:
+            self.date_edit.setDate(QDate.fromString(report_date, "yyyy-MM-dd"))
+            index = self.plan_id_combo.findText(plan_id)
+            if index != -1:
+                self.plan_id_combo.setCurrentIndex(index)
+            self.revenue_edit.setText(total_revenue)
+            self.expenses_edit.setText(total_expenses)
+
+    def load_plan_ids(self):
+        # Загрузка ID планов в QComboBox
+        query = "SELECT plan_id, plan_name FROM plans"
+        plan_list = self.db_manager.execute_query(query)
+        for plan_id, plan_name in plan_list:
+            self.plan_id_combo.addItem(f"{plan_id} - {plan_name}", plan_id)
+
+    def save_report(self):
+        # Получаем данные из полей
+        report_date = self.date_edit.date().toString("yyyy-MM-dd")
+        plan_id = self.plan_id_combo.currentData()
+        total_revenue = self.revenue_edit.text()
+        total_expenses = self.expenses_edit.text()
+
+        # Проверяем, что поля заполнены
+        if not all([report_date, plan_id, total_revenue, total_expenses]):
+            QMessageBox.warning(self, 'Ошибка', 'Пожалуйста, заполните все поля!')
+            return
+
+        # Проверяем, что plan_id существует
+        if not self.parent().get_plan_id_by_name(plan_id):
+            QMessageBox.warning(self, "Ошибка", f"Плана с ID {plan_id} не существует.")
+            return
+
+        # Добавляем или обновляем запись в БД
+        if self.report_id:
+            # Редактирование существующего отчёта
+            query = """
+                UPDATE reports
+                SET date = %s, plan_id = %s, total_revenue = %s, total_expenses = %s
+                WHERE report_id = %s
+            """
+            params = (report_date, plan_id, total_revenue, total_expenses, self.report_id)
+        else:
+            # Добавление нового отчёта
+            query = """
+                INSERT INTO reports (date, plan_id, total_revenue, total_expenses)
+                VALUES (%s, %s, %s, %s)
+            """
+            params = (report_date, plan_id, total_revenue, total_expenses)
+
+        if self.db_manager.execute_update(query, params) >= 0:
+            QMessageBox.information(self, "Успех", "Отчёт сохранен.")
+            self.accept()
+        else:
+            QMessageBox.warning(self, "Ошибка", "Не удалось сохранить отчёт.")
