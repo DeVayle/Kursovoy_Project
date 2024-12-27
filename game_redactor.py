@@ -1,7 +1,5 @@
 from PyQt5.QtWidgets import (QLabel, QLineEdit, QPushButton, QVBoxLayout, QTextEdit,
-                             QFileDialog, QMessageBox, QDialog, QTableWidgetItem)
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt
+                             QMessageBox, QDialog, QTableWidgetItem)
 
 class EditGameForm(QDialog):
     def __init__(self, parent, game_data=None, game_table=None):

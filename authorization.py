@@ -47,7 +47,7 @@ class AuthForm(QWidget):
         login = self.login_input.text()
         password = self.password_input.text()
 
-        if login == 'admin' and password == 'password':
+        if login == '' and password == '':
             self.main_window.show_game_catalog_form()
         else:
             QMessageBox.warning(self, 'Ошибка', 'Неверный логин или пароль!')
