@@ -27,9 +27,9 @@ class EditSubscriptionForm(QDialog):
         left_form_layout.addRow(self.plan_name_label, self.plan_name_input)
         left_form_layout.addRow(self.price_label, self.price_input)
 
-        self.description_label = QLabel('Описание подписки\n(время действия,\nвозможные преимущества)')
+        self.description_label = QLabel('Описание подписки\n(возможные преимущества)')
         self.description_input = QTextEdit()
-        self.duration_label = QLabel('Длительность:')
+        self.duration_label = QLabel('Длительность (в днях):')
         self.duration_input = QLineEdit()
 
         # Список игр в подписке

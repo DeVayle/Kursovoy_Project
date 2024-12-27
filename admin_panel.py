@@ -2,13 +2,12 @@ import csv
 from PyQt5.QtWidgets import (QWidget, QLabel, QPushButton, QVBoxLayout, QDialog, QFileDialog,
                              QHBoxLayout, QStackedWidget, QMessageBox, QTableWidget, QTableWidgetItem,
                              QAbstractItemView, QDateEdit, QGroupBox, QComboBox, QLineEdit, QFormLayout)
-from PyQt5.QtCore import QDate, Qt
+from PyQt5.QtCore import QDate
 from db_manager import DatabaseManager
-
 
 class AdminPanelForm(QWidget):
     def __init__(self, main_window):
-        super().__init__()
+        super().__init__(main_window)
         self.main_window = main_window
         self.setWindowTitle('Панель администратора')
         self.setMinimumSize(800, 600)
@@ -93,25 +92,19 @@ class AdminPanelForm(QWidget):
         # Таблица отчётов
         self.report_table = QTableWidget()
         self.report_table.setColumnCount(5)
-        self.report_table.setHorizontalHeaderLabels(['ID', 'Дата', 'ID плана', 'Доход', 'Расход'])
-        self.report_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.report_table.setHorizontalHeaderLabels(['ID отчёта', 'Дата', 'ID плана', 'Доход', 'Расход'])
+        self.report_table.setEditTriggers(QAbstractItemView.NoEditTriggers) # Запрет на редактирование
 
         # Кнопки
         self.generate_report_button = QPushButton('Сформировать отчёт')
         self.generate_report_button.clicked.connect(self.generate_report)
         self.export_report_button = QPushButton('Экспорт в CSV')
         self.export_report_button.clicked.connect(self.export_report_to_csv)
-        self.edit_report_button = QPushButton('Изменить отчёт')
-        self.edit_report_button.clicked.connect(self.edit_report)
-        self.delete_report_button = QPushButton('Удалить отчёт')
-        self.delete_report_button.clicked.connect(self.delete_report)
 
         # Размещение виджетов на странице отчётов
         reports_buttons_layout = QHBoxLayout()
         reports_buttons_layout.addWidget(self.generate_report_button)
         reports_buttons_layout.addWidget(self.export_report_button)
-        reports_buttons_layout.addWidget(self.edit_report_button)
-        reports_buttons_layout.addWidget(self.delete_report_button)
 
         reports_layout.addWidget(period_group)
         reports_layout.addWidget(self.report_table)
@@ -130,7 +123,7 @@ class AdminPanelForm(QWidget):
         self.sales_table = QTableWidget()
         self.sales_table.setColumnCount(5)
         self.sales_table.setHorizontalHeaderLabels(['Дата', 'ID подписки', 'Метод оплаты', 'ID платежа', ''])
-        self.sales_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.sales_table.setEditTriggers(QAbstractItemView.NoEditTriggers)  # Запрет на редактирование
 
         # Кнопка "Добавить продажу"
         self.add_sale_button = QPushButton('Добавить продажу')
@@ -175,49 +168,6 @@ class AdminPanelForm(QWidget):
             self.report_table.setRowCount(0)
             QMessageBox.information(self, "Отчёт", "Нет данных для отображения.")
 
-    def add_report(self):
-        # Добавление нового отчёта
-        add_report_form = AddEditReportForm(self)
-        if add_report_form.exec_() == QDialog.Accepted:
-            self.load_reports_data()
-
-    def edit_report(self):
-        # Редактирование выбранного отчёта
-        current_row = self.report_table.currentRow()
-        if current_row < 0:
-            QMessageBox.warning(self, "Ошибка", "Выберите отчёт для редактирования.")
-            return
-
-        report_data = {
-            'report_id': self.report_table.item(current_row, 0).text(),
-            'date': self.report_table.item(current_row, 1).text(),
-            'plan_id': self.report_table.item(current_row, 2).text(),
-            'total_revenue': self.report_table.item(current_row, 3).text(),
-            'total_expenses': self.report_table.item(current_row, 4).text()
-        }
-
-        edit_report_form = AddEditReportForm(self, **report_data)
-        if edit_report_form.exec_() == QDialog.Accepted:
-            self.load_reports_data()
-
-    def delete_report(self, row=None):
-        # Удаление выбранного отчёта
-        current_row = self.report_table.currentRow()
-        if current_row < 0:
-            QMessageBox.warning(self, "Ошибка", "Выберите отчёт для удаления.")
-            return
-
-        report_id = self.report_table.item(current_row, 0).text()
-        reply = QMessageBox.question(self, 'Удаление отчёта', f'Вы уверены, что хотите удалить отчёт с ID {report_id}?',
-                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        if reply == QMessageBox.Yes:
-            query = "DELETE FROM reports WHERE report_id = %s"
-            if self.db_manager.execute_update(query, (report_id,)):
-                self.report_table.removeRow(current_row)
-                QMessageBox.information(self, "Успех", f"Отчёт с ID {report_id} успешно удален.")
-            else:
-                QMessageBox.warning(self, "Ошибка", f"Не удалось удалить отчёт с ID {report_id}.")
-
     def export_report_to_csv(self):
         # Экспорт отчёта в CSV файл
         file_name, _ = QFileDialog.getSaveFileName(self, 'Сохранить отчёт', '', 'CSV Files (*.csv)')
@@ -232,35 +182,6 @@ class AdminPanelForm(QWidget):
                                 range(self.report_table.columnCount())]
                     writer.writerow(row_data)
             QMessageBox.information(self, "Экспорт", "Отчёт успешно экспортирован в CSV файл.")
-
-    def load_sales_data(self):
-        # Загрузка данных в таблицу проданных подписок
-        query = "SELECT payment_date, plan_id, payment_method, payment_id FROM payments"
-        sales_data = self.db_manager.execute_query(query)
-
-        if sales_data:
-            self.sales_table.setRowCount(len(sales_data))
-            for row, data in enumerate(sales_data):
-                for col, value in enumerate(data):
-                    self.sales_table.setItem(row, col, QTableWidgetItem(str(value)))
-
-                # Добавляем кнопки "Изменить" и "Удалить"
-                edit_button = QPushButton("Изменить")
-                delete_button = QPushButton("Удалить")
-                edit_button.clicked.connect(lambda _, r=row: self.edit_sale(r))
-                delete_button.clicked.connect(lambda _, r=row: self.delete_sale(r))
-
-                button_widget = QWidget()
-                button_layout = QHBoxLayout(button_widget)
-                button_layout.addWidget(edit_button)
-                button_layout.addWidget(delete_button)
-                button_layout.setContentsMargins(0, 0, 0, 0)  # Убираем отступы
-                button_layout.setAlignment(Qt.AlignCenter)  # Центрируем кнопки
-                self.sales_table.setCellWidget(row, 4, button_widget)
-
-            self.sales_table.resizeColumnsToContents()
-        else:
-            self.sales_table.setRowCount(0)
 
     def add_sale(self):
         add_sale_form = AddSaleForm(self)
@@ -286,9 +207,8 @@ class AdminPanelForm(QWidget):
                         VALUES (%s, %s, %s, %s)
                         ON DUPLICATE KEY UPDATE total_revenue = total_revenue + VALUES(total_revenue);
                     """
-                    revenue = float(sale_data[2].split()[0]) if sale_data[2] is not None and sale_data[2].split() else 0.0
-                    report_params = (sale_data[0], plan_id, revenue, 0)
-
+                    revenue = float(sale_data[2]) if sale_data[2] is not None else 0.0
+                    report_params = (sale_data[0], plan_id, revenue, revenue * 0.8)
                     self.db_manager.execute_update(report_insert_query, report_params)
 
                     # Обновляем таблицы на форме после успешного добавления
@@ -300,6 +220,50 @@ class AdminPanelForm(QWidget):
             else:
                 QMessageBox.warning(self, "Ошибка", "Не удалось найти ID подписки.")
 
+    def get_plan_id_by_name(self, plan_name):
+        query = "SELECT plan_id FROM plans WHERE plan_name = %s"
+        result = self.db_manager.execute_query(query, (plan_name,), fetch_all=False)
+        if result:
+            return result[0]
+        else:
+            return None
+
+    def load_sales_data(self):
+        # Загрузка данных в таблицу проданных подписок
+        query = "SELECT payment_date, plan_id, payment_method, payment_id FROM payments"
+        sales_data = self.db_manager.execute_query(query)
+
+        # Обновляем таблицу
+        self.sales_table.setRowCount(0)
+        if sales_data:
+            for row, data in enumerate(sales_data):
+                self.sales_table.insertRow(row)
+                self.sales_table.setItem(row, 0, QTableWidgetItem(str(data[0])))  # Дата
+                self.sales_table.setItem(row, 1, QTableWidgetItem(str(data[1])))  # ID подписки
+                self.sales_table.setItem(row, 2, QTableWidgetItem(str(data[2])))  # Метод оплаты
+                self.sales_table.setItem(row, 3, QTableWidgetItem(str(data[3])))  # ID платежа
+
+                # Добавляем кнопки "Изменить" и "Удалить" в каждую строку
+                button_layout = QHBoxLayout()
+                edit_button = QPushButton("Изменить")
+                delete_button = QPushButton("Удалить")
+                edit_button.setMinimumHeight(20)
+                delete_button.setMinimumHeight(20)
+                button_layout.addWidget(edit_button)
+                button_layout.addWidget(delete_button)
+                # Центрируем кнопки в ячейке
+                cell_widget = QWidget()
+                cell_widget.setLayout(button_layout)
+                self.sales_table.setCellWidget(row, 4, cell_widget)
+
+                edit_button.clicked.connect(lambda _, r=row: self.edit_sale(r))
+                delete_button.clicked.connect(lambda _, r=row: self.delete_sale(r))
+
+            self.sales_table.resizeColumnsToContents()
+        else:
+            # Очищаем таблицу, если нет данных
+            self.sales_table.clearContents()
+
     def edit_sale(self, row):
         # Редактирование выбранной продажи
         payment_id = self.sales_table.item(row, 3).text()
@@ -307,19 +271,23 @@ class AdminPanelForm(QWidget):
         current_plan_id = self.sales_table.item(row, 1).text()
         current_payment_method = self.sales_table.item(row, 2).text()
 
+        # Создаем диалоговое окно для редактирования
         edit_dialog = QDialog(self)
         edit_dialog.setWindowTitle('Редактировать продажу')
 
+        # Поля для редактирования
         date_label = QLabel('Дата продажи:')
         date_edit = QDateEdit(QDate.fromString(current_date, "yyyy-MM-dd"))
         date_edit.setCalendarPopup(True)
 
         plan_id_label = QLabel('ID подписки:')
-        plan_id_combo = QComboBox()
+        plan_id_combo = QComboBox()  # Используем QComboBox
+        # Заполняем QComboBox списком подписок
         plan_list = self.db_manager.execute_query("SELECT plan_id, plan_name FROM plans")
         for plan_id, plan_name in plan_list:
             plan_id_combo.addItem(f"{plan_id} - {plan_name}", plan_id)
 
+        # Устанавливаем текущее значение в QComboBox
         index = plan_id_combo.findData(int(current_plan_id))
         if index != -1:
             plan_id_combo.setCurrentIndex(index)
@@ -327,9 +295,11 @@ class AdminPanelForm(QWidget):
         payment_method_label = QLabel('Метод оплаты:')
         payment_method_input = QLineEdit(current_payment_method)
 
+        # Кнопки "Сохранить" и "Отмена"
         save_button = QPushButton('Сохранить')
         cancel_button = QPushButton('Отмена')
 
+        # Размещение элементов в диалоговом окне
         layout = QVBoxLayout()
         layout.addWidget(date_label)
         layout.addWidget(date_edit)
@@ -343,11 +313,13 @@ class AdminPanelForm(QWidget):
         layout.addLayout(button_layout)
         edit_dialog.setLayout(layout)
 
+        # Обработчики кнопок
         def save_changes():
             new_date = date_edit.date().toString("yyyy-MM-dd")
-            new_plan_id = plan_id_combo.currentData()
+            new_plan_id = plan_id_combo.currentData()  # Получаем данные из QComboBox
             new_payment_method = payment_method_input.text()
 
+            # Проверяем, были ли изменены данные
             if (new_date == current_date and
                     str(new_plan_id) == current_plan_id and
                     new_payment_method == current_payment_method):
@@ -355,12 +327,14 @@ class AdminPanelForm(QWidget):
                 edit_dialog.close()
                 return
 
+            # Обновляем данные в БД
             update_query = """
                 UPDATE payments
                 SET payment_date = %s, plan_id = %s, payment_method = %s
                 WHERE payment_id = %s
             """
             if self.db_manager.execute_update(update_query, (new_date, new_plan_id, new_payment_method, payment_id)):
+                # Обновляем данные в таблице
                 self.sales_table.item(row, 0).setText(new_date)
                 self.sales_table.item(row, 1).setText(str(new_plan_id))
                 self.sales_table.item(row, 2).setText(new_payment_method)
@@ -373,6 +347,7 @@ class AdminPanelForm(QWidget):
         save_button.clicked.connect(save_changes)
         cancel_button.clicked.connect(edit_dialog.reject)
 
+        # Отображаем диалоговое окно
         edit_dialog.exec_()
 
     def delete_sale(self, row):
@@ -418,8 +393,14 @@ class AddSaleForm(QDialog):
         self.subscription_combo = QComboBox()
         self.load_subscriptions()
 
-        self.buyer_label = QLabel('Покупатель (или метод оплаты):')
+        self.buyer_label = QLabel('Метод оплаты:')
         self.buyer_input = QLineEdit()
+
+        # Добавляем поле для отображения цены
+        self.price_label = QLabel('Цена:')
+        self.price_display = QLineEdit()
+        self.price_display.setReadOnly(True)
+        self.price_display.setText("0.0")
 
         self.save_button = QPushButton('Сохранить')
         self.save_button.clicked.connect(self.accept)
@@ -433,6 +414,8 @@ class AddSaleForm(QDialog):
         layout.addWidget(self.subscription_combo)
         layout.addWidget(self.buyer_label)
         layout.addWidget(self.buyer_input)
+        layout.addWidget(self.price_label)
+        layout.addWidget(self.price_display)
         layout.addWidget(self.save_button)
         layout.addWidget(self.cancel_button)
         self.setLayout(layout)
@@ -440,7 +423,7 @@ class AddSaleForm(QDialog):
         # Добавляем словарь с ценами
         self.subscription_prices = {}
         self.load_subscription_prices()
-        self.price = None  # Атрибут для хранения цены
+        self.price = 0.0  # Атрибут для хранения цены
 
         # Обработчик изменения QComboBox
         self.subscription_combo.currentIndexChanged.connect(self.update_price)
@@ -459,17 +442,25 @@ class AddSaleForm(QDialog):
         prices = self.db_manager.execute_query(query)
         if prices:
             for plan_name, price in prices:
-                self.subscription_prices[plan_name] = str(price) + " руб."
+                self.subscription_prices[plan_name] = str(price)
 
     def update_price(self):
         # Получаем цену из словаря по выбранной подписке
-        self.price = self.subscription_prices.get(self.subscription_combo.currentText())
+        selected_plan = self.subscription_combo.currentText()
+        price = self.subscription_prices.get(selected_plan)
+        if price is not None:
+            # Убираем "руб." и отображаем цену в price_display
+            self.price_display.setText(price.replace(" руб.", "").strip())
+            self.price = float(price.replace(" руб.", "").strip())
+        else:
+            self.price_display.setText("0.0")
+            self.price = 0.0
 
     def get_sale_data(self):
         return (
             self.date_edit.date().toString("yyyy-MM-dd"),
             self.subscription_combo.currentText(),
-            self.price,  # Добавляем цену в возвращаемые данные
+            self.price,
             self.buyer_input.text()
         )
 

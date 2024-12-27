@@ -178,6 +178,20 @@ class GameCatalogForm(QWidget):
     def delete_game(self, row):
         title = self.game_table.item(row, 0).text()
 
+        # Проверяем, используется ли игра в подписках
+        query = """
+            SELECT 1
+            FROM gamesinplans
+            WHERE game_id = (SELECT game_id FROM games WHERE title = %s)
+            LIMIT 1
+        """
+        game_in_subscriptions = self.db_manager.execute_query(query, (title,), fetch_all=False)
+
+        if game_in_subscriptions:
+            QMessageBox.warning(self, "Ошибка", f"Игра '{title}' используется в подписках и не может быть удалена. "
+                                                f"Сначала удалите игру из всех подписок.")
+            return
+
         # Запрашиваем подтверждение удаления
         reply = QMessageBox.question(self, 'Удаление игры', f'Вы уверены, что хотите удалить игру "{title}"?',
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
